@@ -235,6 +235,8 @@
       \+ (add-token scanner ::token/plus)
       \; (add-token scanner ::token/semicolon)
       \* (add-token scanner ::token/star)
+      \? (add-token scanner ::token/question)
+      \: (add-token scanner ::token/colon)
       \! (match-add-token scanner \= ::token/bang-eq ::token/bang)
       \= (match-add-token scanner \= ::token/eq-eq ::token/eq)
       \< (match-add-token scanner \= ::token/lte ::token/lt)

@@ -8,6 +8,7 @@
     ::minus ::plus
     ::semicolon
     ::slash ::star
+    ::question ::colon
 
     ::bang ::bang-eq
     ::eq ::eq-eq
