@@ -1,6 +1,8 @@
 (ns cljox.core
   (:gen-class)
-  (:require [cljox.error :as error]
+  (:require [cljox.ast :as ast]
+            [cljox.error :as error]
+            [cljox.parser :as parser]
             [cljox.scanner :as scanner]))
 
 (defn- print-errors
@@ -13,7 +15,10 @@
   (let [{::scanner/keys [tokens errors]} (scanner/scan input)]
     (if (seq errors)
       (print-errors errors)
-      (doseq [token tokens] (println token)))))
+      (let [{::parser/keys [expression errors]} (parser/parse tokens)]
+        (if (seq errors)
+          (print-errors errors)
+          (println (ast/pretty-str expression)))))))
 
 (defn run-file
   "Executes `file` as a Lox program"
