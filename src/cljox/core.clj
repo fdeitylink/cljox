@@ -5,9 +5,16 @@
             [cljox.parser :as parser]
             [cljox.scanner :as scanner]))
 
+(defn- print-error
+  "Formats and prints `error` to stderr"
+  [error]
+  (binding [*out* *err*]
+   (println (error/pretty-str error))))
+
 (defn- print-errors
+  "Prints each error in `errors`"
   [errors]
-  (doseq [error errors] (println (error/pretty-str error))))
+  (dorun (map print-error errors)))
 
 (defn run
   "Executes `input` as a Lox program"
