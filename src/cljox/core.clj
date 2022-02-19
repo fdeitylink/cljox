@@ -2,6 +2,7 @@
   (:gen-class)
   (:require [cljox.ast :as ast]
             [cljox.error :as error]
+            [cljox.interpreter :as interpreter]
             [cljox.parser :as parser]
             [cljox.scanner :as scanner]))
 
@@ -25,7 +26,10 @@
       (let [{::parser/keys [expression errors]} (parser/parse tokens)]
         (if (seq errors)
           (print-errors errors)
-          (println (ast/pretty-str expression)))))))
+          (let [{::interpreter/keys [result error]} (interpreter/interpret expression)]
+            (if error
+              (print-error error)
+              (prn result))))))))
 
 (defn run-file
   "Executes `file` as a Lox program"
