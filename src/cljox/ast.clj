@@ -29,6 +29,14 @@
       :operator operator
       :right right})
 
+(defn ternary
+  "Creates a ternary expression of `test` `then` `else`"
+  [test then else]
+  #::{:type ::ternary
+      :test test
+      :then then
+      :else else})
+
 (defmulti pretty-str
   "Converts an ast into a parenthesized Polish form string"
   ::type)
@@ -53,3 +61,7 @@
 (defmethod pretty-str ::binary
   [{::keys [left operator right]}]
   (parenthesize (::token/lexeme operator) left right))
+
+(defmethod pretty-str ::ternary
+  [{::keys [test then else]}]
+  (parenthesize "ternary" test then else))
