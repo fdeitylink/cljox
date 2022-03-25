@@ -23,11 +23,21 @@
 
 (error-formatter ::missing-binary-operand "expected left operand to binary operator")
 
+(error-formatter ::invalid-assignment-target "invalid assignment target")
+
+(error-formatter ::missing-semicolon "expected ';'")
+
+(error-formatter ::missing-closing-brace "expected '}")
+
+(error-formatter ::missing-var-name "expected variable name")
+
+
 (defn- parser
   "Creates a parser from `tokens`"
   [tokens]
   #::{:tokens tokens
       :expression nil
+      :statements []
       :errors []
       :curr 0})
 
@@ -115,6 +125,7 @@
     (matches? parser ::token/nil) (add-literal parser nil)
     (matches? parser ::token/number) (add-literal parser)
     (matches? parser ::token/string) (add-literal parser)
+    (matches? parser ::token/identifier) (add-expression (advance parser) (ast/var (peek parser)))
     (matches? parser ::token/left-paren) (let [middle (expression (advance parser))]
                                            (add-expression
                                             (expect middle ::token/right-paren ::missing-closing-paren)
@@ -188,21 +199,91 @@
           (add-error-throw then ::missing-ternary-colon)))
       test)))
 
+(defn- assignment
+  "Parses the current assignment expression into `parser`"
+  [parser]
+  (let [expr (ternary parser)]
+    (if (matches? expr ::token/eq)
+      (if (= ::ast/var (-> expr ::expression ::ast/type))
+       (let [value (assignment (advance expr))]
+         (add-expression value (ast/assignment (-> expr ::expression ::ast/name)
+                                               (::expression value))))
+       (assignment (advance (add-error expr ::invalid-assignment-target))))
+      expr)))
+
 (defn- comma
   "Parses the current comma expression into `parser`"
   [parser]
-  (binary parser ternary ::token/comma))
+  (binary parser assignment ::token/comma))
 
 (defn- expression
   "Parses the current top-level expression into `parser`"
   [parser]
   (comma parser))
 
+(declare declaration)
+
+(defn- expression-statement
+  "Parses the current expression statement into `parser`"
+  [parser]
+  (let [expr (expression parser)
+        semi (expect expr ::token/semicolon ::missing-semicolon)]
+    (add-expression semi (ast/expression-statement (::expression expr)))))
+
+(defn- print-statement
+  "Parses the current print statement into `parser`"
+  [parser]
+  (let [expr (expression parser)
+        semi (expect expr ::token/semicolon ::missing-semicolon)]
+    (add-expression semi (ast/print-statement (::expression expr)))))
+
+(defn- block
+  "Parses the current block statement into `parser`"
+  [parser]
+  (loop [parser parser
+         statements []]
+    (if (or (matches? parser ::token/right-brace)
+            (at-end? parser))
+      (add-expression
+       (expect parser ::token/right-brace ::missing-closing-brace)
+       (ast/block statements))
+      (let [stmt (declaration parser)]
+        (recur stmt (conj statements (::expression stmt)))))))
+
+(defn- statement
+  "Parses the current top-level statement into `parser`"
+  [parser]
+  (cond
+    (matches? parser ::token/left-brace) (block (advance parser))
+    (matches? parser ::token/print) (print-statement (advance parser))
+    :else (expression-statement parser)))
+
+(defn- var-declaration
+  "Parses the current variable declaration into `parser`"
+  [parser]
+  (let [name (expect parser ::token/identifier ::missing-var-name)
+        initializer (when (matches? name ::token/eq) (expression (advance name)))
+        semi (expect (or initializer name) ::token/semicolon ::missing-semicolon)]
+    (add-expression semi (ast/var-statement (peek parser) (::expression initializer)))))
+
+(defn- declaration
+  "Parses the current declaration into `parser`"
+  [parser]
+  (try
+    (cond
+      (matches? parser ::token/var) (var-declaration (advance parser))
+      :else (statement parser))
+    (catch clojure.lang.ExceptionInfo e
+      (synchronize (ex-data e)))))
+
 (defn parse
-  "Parses `tokens` into a map of ::expression and ::errors"
+  "Parses `tokens` into a map of ::statements and ::errors"
   [tokens]
-  (-> tokens
-      parser
-      expression
-      (try (catch clojure.lang.ExceptionInfo e (ex-data e)))
-      (select-keys [::expression ::errors])))
+  (loop [parser (parser tokens)]
+    (if (at-end? parser)
+      (select-keys parser [::statements ::errors])
+      (let [stmt (declaration parser)]
+        (-> stmt
+            (update ::statements conj (::expression stmt))
+            (assoc ::expression nil)
+            recur)))))
