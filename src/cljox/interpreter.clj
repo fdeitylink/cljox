@@ -31,11 +31,23 @@
      (error/runtime-error ::nonnumeric-binary-operands operator
                           ::operator operator ::left l ::right r))))
 
+(defn- stringify
+  "Formats `value` as a string"
+  [value]
+  (cond
+    (nil? value) "nil"
+    (number? value) (let [s (str value)]
+                      (if (s/ends-with? s ".0")
+                        (subs s 0 (- (count s) 2))
+                        s))
+    (string? value) value
+    :else (str value)))
+
 (defn- add
   [operator l r]
   (cond
     (and (number? l) (number? r)) (+ l r)
-    (or (string? l) (string? r)) (str l r)
+    (or (string? l) (string? r)) (str (stringify l) (stringify r))
     :else (error/runtime-error ::invalid-plus-operands operator
                                ::left l ::right r)))
 
