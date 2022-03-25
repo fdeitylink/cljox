@@ -6,6 +6,12 @@
   #::{:type ::literal
       :value value})
 
+(defn var
+  "Creates a variable expression of `name`"
+  [name]
+  #::{:type ::var
+      :name name})
+
 (defn grouping
   "Creates a grouping expression of `expression`"
   [expression]
@@ -34,3 +40,35 @@
       :test test
       :then then
       :else else})
+
+(defn assignment
+  "Creates an assignment expression of `name` `value`"
+  [name value]
+  #::{:type ::assignment
+      :name name
+      :value value})
+
+(defn expression-statement
+  "Creates an expresion statement of `expression`"
+  [expression]
+  #::{:type ::expression-statement
+      :expression expression})
+
+(defn print-statement
+  "Creates a print statement of `expression`"
+  [expression]
+  #::{:type ::print-statement
+      :expression expression})
+
+(defn block
+  "Creates a block statement of `statements`"
+  [statements]
+  #::{:type ::block
+      :statements statements})
+
+(defn var-statement
+  "Creates a declaration statement of `name` `initializer`"
+  [name initializer]
+  #::{:type ::var-statement
+      :name name
+      :initializer initializer})
