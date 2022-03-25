@@ -1,7 +1,6 @@
 (ns cljox.core
   (:gen-class)
-  (:require [cljox.ast :as ast]
-            [cljox.error :as error]
+  (:require [cljox.error :as error]
             [cljox.interpreter :as interpreter]
             [cljox.parser :as parser]
             [cljox.scanner :as scanner]))
@@ -10,7 +9,7 @@
   "Formats and prints `error` to stderr"
   [error]
   (binding [*out* *err*]
-   (println (error/pretty-str error))))
+    (println (error/pretty-str error))))
 
 (defn- print-errors
   "Prints each error in `errors`"
@@ -19,31 +18,33 @@
 
 (defn run
   "Executes `input` as a Lox program"
-  [input]
+  [state input]
   (let [{::scanner/keys [tokens errors]} (scanner/scan input)]
     (if (seq errors)
       (print-errors errors)
-      (let [{::parser/keys [expression errors]} (parser/parse tokens)]
+      (let [{::parser/keys [statements errors]} (parser/parse tokens)]
         (if (seq errors)
           (print-errors errors)
-          (let [{::interpreter/keys [result error]} (interpreter/interpret expression)]
-            (if error
-              (print-error error)
-              (prn result))))))))
+          (let [state (interpreter/interpret state statements)]
+            (if-let [error (::interpreter/error state)]
+              (do
+                (print-error error)
+                (interpreter/clear-error state))
+              state)))))))
 
 (defn run-file
   "Executes `file` as a Lox program"
   [file]
-  (run (slurp file)))
+  (run (interpreter/state) (slurp file)))
 
 (defn run-prompt
   "Runs an interactive prompt to execute Lox lines until EOF"
   []
-  (println "> ")
-  (flush)
-  (when-let [line (read-line)]
-    (run line)
-    (recur)))
+  (loop [state (interpreter/state)]
+    (println "> ")
+    (flush)
+    (when-let [line (read-line)]
+      (recur (run state line)))))
 
 (defn -main
   "Executes the Lox interpreter"
