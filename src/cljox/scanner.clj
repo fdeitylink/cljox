@@ -116,7 +116,7 @@
   (and (char? c)
        (<= (int \0) (int c) (int \9))))
 
-(def alphanumeric?
+(def ^:private alphanumeric?
   "Returns true if `c` is an alphanumeric character, false otherwise"
   (some-fn alpha? digit?))
 
