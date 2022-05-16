@@ -23,6 +23,8 @@
 
 (error-formatter ::missing-binary-operand "expected left operand to binary operator")
 
+(error-formatter ::missing-ternary-colon "expected colon after then-clause of ternary expression")
+
 (error-formatter ::invalid-assignment-target "invalid assignment target")
 
 (error-formatter ::missing-semicolon "expected ';'")
