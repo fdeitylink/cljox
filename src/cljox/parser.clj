@@ -194,11 +194,9 @@
   [parser]
   (let [test (equality parser)]
     (if (matches? test ::token/question)
-      (let [then (expression (advance test))]
-        (if (matches? then ::token/colon)
-          (let [else (ternary (advance then))]
-            (add-expression else (apply ast/ternary (map ::expression [test then else]))))
-          (add-error-throw then ::missing-ternary-colon)))
+      (let [then (expression (advance test))
+            else (ternary (expect then ::token/colon ::missing-ternary-colon))]
+          (add-expression else (apply ast/ternary (map ::expression [test then else]))))
       test)))
 
 (defn- assignment
