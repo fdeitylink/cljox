@@ -11,7 +11,7 @@
     (str message " at end")
     (format "%s at '%s'" message (::token/lexeme token))))
 
-(defmacro error-formatter
+(defmacro ^:private error-formatter
   [type message]
   `(defmethod error/fmt ~type
      [~'error]
