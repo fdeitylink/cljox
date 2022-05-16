@@ -41,7 +41,7 @@
   "Runs an interactive prompt to execute Lox lines until EOF"
   []
   (loop [state (interpreter/state)]
-    (println "> ")
+    (print "> ")
     (flush)
     (when-let [line (read-line)]
       (recur (run state line)))))
