@@ -25,8 +25,8 @@
       (let [{::parser/keys [statements errors]} (parser/parse tokens)]
         (if (seq errors)
           (print-errors errors)
-          (let [state (interpreter/interpret state statements)]
-            (if-let [error (::interpreter/error state)]
+          (let [{::interpreter/keys [error] :as state} (interpreter/interpret state statements)]
+            (if error
               (do
                 (print-error error)
                 (interpreter/clear-error state))
