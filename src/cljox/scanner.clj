@@ -60,14 +60,14 @@
   ([scanner]
    (advance scanner 1))
   ([scanner offset]
-   (->> scanner
-        (iterate #(-> %
-                      (update ::curr inc)
-                      (update ::curr-loc (if (= \newline (peek %))
-                                           location/advance-line
-                                           location/advance-col))))
-        (drop offset)
-        first)))
+   (if (zero? offset)
+     scanner
+     (-> scanner
+         (update ::curr inc)
+         (update ::curr-loc (if (= \newline (peek scanner))
+                              location/advance-line
+                              location/advance-col))
+         (recur (dec offset))))))
 
 (defn- peek-and-advance
   "Returns a vector with the results of peeking and advancing `scanner`"
@@ -121,15 +121,14 @@
   (some-fn alpha? digit?))
 
 (defn- advance-while
-  "Advances `scanner` while calling `pred` on it returns logical `true`"
+  "Advances `scanner` while applying `pred` to it returns logical true"
   [scanner pred]
-  (->> scanner
-       (iterate advance)
-       (drop-while pred)
-       first))
+  (if (pred scanner)
+    (recur (advance scanner) pred)
+    scanner))
 
 (defn- advance-until
-  "Advances `scanner` until calling `pred` on it returns logical `true`"
+  "Advances `scanner` until applying `pred` to it returns logical true"
   [scanner pred]
   (advance-while scanner (complement pred)))
 
