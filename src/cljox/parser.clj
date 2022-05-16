@@ -110,7 +110,7 @@
 
 (defn- expect
   "Adds an error to `parser` and throws it inside an [[ExceptionInfo]]
-  if `expected` is not `parser`'s current token"
+  if `expected` is not `parser`'s current token, otherwise advances it"
   [parser expected error]
   (if (matches? parser expected)
     (advance parser)
