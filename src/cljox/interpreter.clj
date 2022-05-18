@@ -117,6 +117,16 @@
              ::token/lte (numeric-operator operator <= l r)
              ::token/comma r))))
 
+(defmethod evaluate ::ast/logical
+  [state {::ast/keys [left operator right]}]
+  (let [state (evaluate state left)
+        l (::result state)
+        tok (::token/type operator)]
+    (cond
+      (and l (= tok ::token/or)) state
+      (and (not l) (= tok ::token/and)) state
+      :else (evaluate state right))))
+
 (defmethod evaluate ::ast/ternary
   [state {::ast/keys [test then else]}]
   (let [state (evaluate state test)]
@@ -150,6 +160,21 @@
     (if-let [statement (first statements)]
       (recur (evaluate state statement) (rest statements))
       (update state ::environment environment/pop-scope))))
+
+(defmethod evaluate ::ast/if-statement
+  [state {::ast/keys [test then else]}]
+  (let [state (evaluate state test)]
+    (cond
+      (::result state) (evaluate state then)
+      else (evaluate state else)
+      :else (assoc state ::result nil))))
+
+(defmethod evaluate ::ast/while-statement
+  [state {::ast/keys [test body] :as while}]
+  (let [state (evaluate state test)]
+    (if (::result state)
+      (recur (evaluate (assoc state ::result nil) body) while)
+      state)))
 
 (defmethod evaluate ::ast/var-statement
   [state {::ast/keys [name initializer]}]
