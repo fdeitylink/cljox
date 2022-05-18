@@ -33,6 +33,14 @@
       :operator operator
       :right right})
 
+(defn logical
+  "Creates a logical expression of `left` `operator` `right`"
+  [left operator right]
+  #::{:type ::logical
+      :left left
+      :operator operator
+      :right right})
+
 (defn ternary
   "Creates a ternary expression of `test` `then` `else`"
   [test then else]
@@ -65,6 +73,21 @@
   [statements]
   #::{:type ::block
       :statements statements})
+
+(defn if-statement
+  "Creates an if statement of `test` `then` `else`"
+  [test then else]
+  #::{:type ::if-statement
+      :test test
+      :then then
+      :else else})
+
+(defn while-statement
+  "Creates a while statement of `test` `body`"
+  [test body]
+  #::{:type ::while-statement
+      :test test
+      :body body})
 
 (defn var-statement
   "Creates a declaration statement of `name` `initializer`"
