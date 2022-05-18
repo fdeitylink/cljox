@@ -20,6 +20,7 @@
     ::number
 
     ::and
+    ::break
     ::class
     ::else
     ::false

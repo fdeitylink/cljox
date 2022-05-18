@@ -194,6 +194,7 @@
 (def ^:private reserved-words
   "Set of reserved words in Lox"
   #{"and"
+    "break"
     "class"
     "else"
     "false"
