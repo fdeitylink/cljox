@@ -173,8 +173,18 @@
   [state {::ast/keys [test body] :as while}]
   (let [state (evaluate state test)]
     (if (::result state)
-      (recur (evaluate (assoc state ::result nil) body) while)
+      (let [[state break] (try
+                            [(evaluate (assoc state ::result nil) body) false]
+                            (catch clojure.lang.ExceptionInfo e
+                              (if (= ::break (::type (ex-data e)))
+                                [(::state (ex-data e)) true]
+                                (throw e))))]
+        (if break state (recur state while)))
       state)))
+
+(defmethod evaluate ::ast/break-statement
+  [state _]
+  (throw (ex-info "break" {::type ::break ::state state})))
 
 (defmethod evaluate ::ast/var-statement
   [state {::ast/keys [name initializer]}]

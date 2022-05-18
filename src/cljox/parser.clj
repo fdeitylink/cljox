@@ -45,6 +45,8 @@
 
 (error-formatter ::missing-for-right-paren "expected ')' after for clauses")
 
+(error-formatter ::break-outside-loop "unexpected 'break' outside loop body")
+
 (error-formatter ::missing-var-name "expected variable name")
 
 (defn- parser
@@ -54,7 +56,8 @@
       :expression nil
       :statements []
       :errors []
-      :curr 0})
+      :curr 0
+      :loop-depth 0})
 
 (defn- peek
   "Returns `parser`'s current token"
@@ -128,6 +131,21 @@
   (if (matches? parser expected)
     (advance parser)
     (add-error-throw parser error)))
+
+(defn- enter-loop-body
+  "Increments the loop depth of `parser`"
+  [parser]
+  (update parser ::loop-depth inc))
+
+(defn- exit-loop-body
+  "Decrements the loop depth of `parser`"
+  [parser]
+  (update parser ::loop-depth dec))
+
+(defn- inside-loop-body?
+  "Returns true if the parser is inside a loop body, false otherwise"
+  [parser]
+  (pos? (::loop-depth parser)))
 
 (declare expression)
 
@@ -296,7 +314,11 @@
   "Parses the current while statement into `parser`"
   [parser]
   (let [test (expression (expect parser ::token/left-paren ::missing-while-left-paren))
-        body (statement (expect test ::token/right-paren ::missing-while-right-paren))]
+        body (-> test
+                 (expect ::token/right-paren ::missing-while-right-paren)
+                 enter-loop-body
+                 statement
+                 exit-loop-body)]
     (add-expression body (ast/while-statement (::expression test) (::expression body)))))
 
 (defn- for-statement
@@ -314,12 +336,26 @@
         increment (if (matches? semi ::token/right-paren)
                     (assoc semi ::expression nil)
                     (expression semi))
-        body (statement (expect increment ::token/right-paren ::missing-for-right-paren))
+        body (-> increment
+                 (expect ::token/right-paren ::missing-for-right-paren)
+                 enter-loop-body
+                 statement
+                 exit-loop-body)
         [init t inc stmt] (map ::expression [initializer test increment body])
         stmt (if inc (ast/block [stmt (ast/expression-statement inc)]) stmt)
         stmt (ast/while-statement (or t (ast/literal true)) stmt)
         stmt (if init (ast/block [init stmt]) stmt)]
     (add-expression body stmt)))
+
+(defn- break-statement
+  "Parses the current break statement into `parser`
+
+  The current token should be ::token/break"
+  [parser]
+  (let [break (if (inside-loop-body? parser)
+                (add-expression (advance parser) (ast/break-statement))
+                (advance (add-error parser ::break-outside-loop)))]
+     (expect break ::token/semicolon ::missing-semicolon)))
 
 (defn- statement
   "Parses the current top-level statement into `parser`"
@@ -330,6 +366,7 @@
     (matches? parser ::token/if) (if-statement (advance parser))
     (matches? parser ::token/while) (while-statement (advance parser))
     (matches? parser ::token/for) (for-statement (advance parser))
+    (matches? parser ::token/break) (break-statement parser)
     :else (expression-statement parser)))
 
 (defn- var-declaration
