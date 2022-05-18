@@ -31,8 +31,21 @@
 
 (error-formatter ::missing-closing-brace "expected '}")
 
-(error-formatter ::missing-var-name "expected variable name")
+(error-formatter ::missing-if-left-paren "expected '(' after 'if'")
 
+(error-formatter ::missing-if-right-paren "expected ')' after if condition")
+
+(error-formatter ::missing-while-left-paren "expected '(' after 'while'")
+
+(error-formatter ::missing-while-right-paren "expected ')' after while condition")
+
+(error-formatter ::missing-for-left-paren "expected '(' after 'for'")
+
+(error-formatter ::missing-for-test-semicolon "expected ';' after for condition")
+
+(error-formatter ::missing-for-right-paren "expected ')' after for clauses")
+
+(error-formatter ::missing-var-name "expected variable name")
 
 (defn- parser
   "Creates a parser from `tokens`"
@@ -143,22 +156,31 @@
       (add-expression right (ast/unary operator (::expression right))))
     (primary parser)))
 
-(defn- binary
+(defn- binary*
   "Parses the current binary expression into `parser`
 
+  `ast` is a function that creates an AST node of the left operand, operator, and right operand
   `operand` is a function parsing the operator's operands
   `operators` is a sequence of token types representing the expression's operator"
-  [parser operand & operators]
+  [parser ast operand & operators]
   (loop [left (if (apply matches? parser operators)
                 (add-error parser ::missing-binary-operand)
                 (operand parser))]
     (if (apply matches? left operators)
       (let [operator (peek left)
             right (operand (advance left))]
-        (recur (add-expression right (ast/binary (::expression left)
-                                                 operator
-                                                 (::expression right)))))
+        (recur (add-expression right (ast (::expression left)
+                                          operator
+                                          (::expression right)))))
       left)))
+
+(defn- binary
+  "Parses the current binary expression into `parser`
+
+  `operand` is a function parsing the operator's operands
+  `operators` is a sequence of token types representing the expression's operator"
+  [parser operand & operators]
+  (apply binary* parser ast/binary operand operators))
 
 (defn- factor
   "Parses the current factor expression into `parser`"
@@ -189,10 +211,20 @@
   [parser]
   (binary parser comparison ::token/bang-eq ::token/eq-eq))
 
+(defn- logical-and
+  "Parses the current logical and expression into `parser`"
+  [parser]
+  (binary* parser ast/logical equality ::token/and))
+
+(defn- logical-or
+  "Parses the current logical or expression into `parser`"
+  [parser]
+  (binary* parser ast/logical logical-and ::token/or))
+
 (defn- ternary
   "Parses the current ternary expression into `parser`"
   [parser]
-  (let [test (equality parser)]
+  (let [test (logical-or parser)]
     (if (matches? test ::token/question)
       (let [then (expression (advance test))
             else (ternary (expect then ::token/colon ::missing-ternary-colon))]
@@ -221,6 +253,8 @@
   [parser]
   (comma parser))
 
+(declare statement)
+(declare var-declaration)
 (declare declaration)
 
 (defn- expression-statement
@@ -250,12 +284,52 @@
       (let [stmt (declaration parser)]
         (recur stmt (conj statements (::expression stmt)))))))
 
+(defn- if-statement
+  "Parses the current if statement into `parser`"
+  [parser]
+  (let [test (expression (expect parser ::token/left-paren ::missing-if-left-paren))
+        then (statement (expect test ::token/right-paren ::missing-if-right-paren))
+        else (when (matches? then ::token/else) (statement (advance then)))]
+    (add-expression (or else then) (apply ast/if-statement (map ::expression [test then else])))))
+
+(defn- while-statement
+  "Parses the current while statement into `parser`"
+  [parser]
+  (let [test (expression (expect parser ::token/left-paren ::missing-while-left-paren))
+        body (statement (expect test ::token/right-paren ::missing-while-right-paren))]
+    (add-expression body (ast/while-statement (::expression test) (::expression body)))))
+
+(defn- for-statement
+  "Parses the current for statement into `parser`"
+  [parser]
+  (let [left-paren (expect parser ::token/left-paren ::missing-for-left-paren)
+        initializer (cond
+                      (matches? left-paren ::token/semicolon) (advance left-paren)
+                      (matches? left-paren ::token/var) (var-declaration (advance left-paren))
+                      :else (expression-statement left-paren))
+        test (if (matches? initializer ::token/semicolon)
+               (assoc initializer ::expression nil)
+               (expression initializer))
+        semi (expect test ::token/semicolon ::missing-for-test-semicolon)
+        increment (if (matches? semi ::token/right-paren)
+                    (assoc semi ::expression nil)
+                    (expression semi))
+        body (statement (expect increment ::token/right-paren ::missing-for-right-paren))
+        [init t inc stmt] (map ::expression [initializer test increment body])
+        stmt (if inc (ast/block [stmt (ast/expression-statement inc)]) stmt)
+        stmt (ast/while-statement (or t (ast/literal true)) stmt)
+        stmt (if init (ast/block [init stmt]) stmt)]
+    (add-expression body stmt)))
+
 (defn- statement
   "Parses the current top-level statement into `parser`"
   [parser]
   (cond
     (matches? parser ::token/left-brace) (block (advance parser))
     (matches? parser ::token/print) (print-statement (advance parser))
+    (matches? parser ::token/if) (if-statement (advance parser))
+    (matches? parser ::token/while) (while-statement (advance parser))
+    (matches? parser ::token/for) (for-statement (advance parser))
     :else (expression-statement parser)))
 
 (defn- var-declaration
