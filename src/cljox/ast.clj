@@ -89,6 +89,11 @@
       :test test
       :body body})
 
+(defn break-statement
+  "Creates a break statement"
+  []
+  #::{:type ::break-statement})
+
 (defn var-statement
   "Creates a declaration statement of `name` `initializer`"
   [name initializer]
