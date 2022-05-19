@@ -5,17 +5,29 @@
             [cljox.token :as token]
             [clojure.string :as s]))
 
+(defn- stringify
+  "Formats `value` as a string"
+  [value]
+  (cond
+    (nil? value) "nil"
+    (number? value) (let [s (str value)]
+                      (if (s/ends-with? s ".0")
+                        (subs s 0 (- (count s) 2))
+                        s))
+    (string? value) value
+    :else (str value)))
+
 (defmethod error/fmt ::nonnumeric-unary-operand
   [{::keys [operator right] :as error}]
-  (format "operand '%s' to '%s' must be numeric" (pr-str right) (::token/lexeme operator)))
+  (format "operand '%s' to '%s' must be numeric" (stringify right) (::token/lexeme operator)))
 
 (defmethod error/fmt ::nonnumeric-binary-operands
   [{::keys [operator left right] :as error}]
-  (format "operands '%s', '%s' to '%s' must be numeric" (pr-str left) (pr-str right) (::token/lexeme operator)))
+  (format "operands '%s', '%s' to '%s' must be numeric" (stringify left) (stringify right) (::token/lexeme operator)))
 
 (defmethod error/fmt ::invalid-plus-operands
   [{::keys [left right] :as error}]
-  (format "operands '%s', '%s' to + must both be numeric or one must be a string" (pr-str left) (pr-str right)))
+  (format "operands '%s', '%s' to + must both be numeric or one must be a string" (stringify left) (stringify right)))
 
 (defmethod error/fmt ::division-by-zero
   [{::keys [left] :as error}]
@@ -43,18 +55,6 @@
      (f l r)
      (error/runtime-error ::nonnumeric-binary-operands operator
                           ::operator operator ::left l ::right r))))
-
-(defn- stringify
-  "Formats `value` as a string"
-  [value]
-  (cond
-    (nil? value) "nil"
-    (number? value) (let [s (str value)]
-                      (if (s/ends-with? s ".0")
-                        (subs s 0 (- (count s) 2))
-                        s))
-    (string? value) value
-    :else (str value)))
 
 (defn- add
   [operator l r]
