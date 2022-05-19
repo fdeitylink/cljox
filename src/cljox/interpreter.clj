@@ -25,7 +25,7 @@
   "Creates a new interpreter state"
   []
   #::{:result nil
-      :environment (environment/environment)
+      :environment (atom (environment/environment))
       :error nil})
 
 (defn clear-error
@@ -82,7 +82,7 @@
 
 (defmethod evaluate ::ast/var
   [{::keys [environment] :as state} {::ast/keys [name]}]
-  (assoc state ::result (environment/get-var environment name)))
+  (assoc state ::result (environment/get-var @environment name)))
 
 (defmethod evaluate ::ast/grouping
   [state {::ast/keys [expression]}]
@@ -137,9 +137,8 @@
   (let [state (evaluate state value)
         env (::environment state)
         val (::result state)]
-    (assoc state
-           ::environment (environment/assign-var env name val)
-           ::result val)))
+    (swap! env environment/assign-var name val)
+    (assoc state ::result val)))
 
 (defmethod evaluate ::ast/expression-statement
   [state {::ast/keys [expression]}]
@@ -154,12 +153,13 @@
     (assoc state ::result nil)))
 
 (defmethod evaluate ::ast/block
-  [state {::ast/keys [statements]}]
-  (loop [state (update state ::environment environment/push-scope)
-         statements statements]
-    (if-let [statement (first statements)]
-      (recur (evaluate state statement) (rest statements))
-      (update state ::environment environment/pop-scope))))
+  [{::keys [environment] :as state} {::ast/keys [statements]}]
+  (swap! environment environment/push-scope)
+  (try
+    (reduce evaluate state statements)
+    (finally
+      (swap! environment environment/pop-scope)
+      state)))
 
 (defmethod evaluate ::ast/if-statement
   [state {::ast/keys [test then else]}]
@@ -190,20 +190,21 @@
   [state {::ast/keys [name initializer]}]
   (let [state (if initializer (evaluate state initializer) state)
         env (::environment state)]
-    (assoc state
-           ::environment (if initializer
-                           (environment/define-var env name (::result state))
-                           (environment/declare-var env name))
-           ::result nil)))
+    (if initializer
+      (swap! env environment/define-var name (::result state))
+      (swap! env environment/declare-var name))
+    (assoc state ::result nil)))
 
 (defn interpret
-  "Interprets `statements` and returns an error if any, otherwise nil"
+  "Interprets `statements` and returns the new interpreter state"
   [state statements]
   (reduce
    (fn [state statement]
      (try
        (evaluate state statement)
        (catch clojure.lang.ExceptionInfo e
-         (reduced (assoc state ::error (ex-data e) ::result nil)))))
+         (if (contains? (ex-data e) ::error/type)
+           (reduced (assoc state ::error (ex-data e) ::result nil))
+           (throw e)))))
    state
    statements))
