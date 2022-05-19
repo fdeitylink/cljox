@@ -21,10 +21,14 @@
   [state input]
   (let [{::scanner/keys [tokens errors]} (scanner/scan input)]
     (if (seq errors)
-      (print-errors errors)
+      (do
+        (print-errors errors)
+        state)
       (let [{::parser/keys [statements errors]} (parser/parse tokens)]
         (if (seq errors)
-          (print-errors errors)
+          (do
+            (print-errors errors)
+            state)
           (let [{::interpreter/keys [error] :as state} (interpreter/interpret state statements)]
             (if error
               (do
